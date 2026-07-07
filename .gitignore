@@ -1,0 +1,8 @@
+# Ne jamais committer de secrets
+.env
+**/.env
+# Sorties de build
+output/
+**/output/
+__pycache__/
+*.pyc
