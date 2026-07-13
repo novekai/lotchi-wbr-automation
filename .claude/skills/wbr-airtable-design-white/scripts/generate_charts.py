@@ -351,7 +351,7 @@ def soldout_table(sessions, out_path, *, width_in=3.176, height_in=2.242):
         cap=int(sx.get("cap",0)); sold=int(sx.get("sold",0)); fill=sx.get("fill",0.0)
         dispo=max(cap-sold,0); soldpct=(fill*100) if fill else ((sold/cap*100) if cap else 0)
         dt=("%s %s"%(str(sx.get("date",""))[-5:], sx.get("time",""))).strip()
-        vals=[dt,str(cap),str(cap),str(dispo),"%.1f%%"%soldpct]
+        vals=[dt,str(cap),str(sold),str(dispo),"%.1f%%"%soldpct]
         bg=ZEB if i%2==0 else W_BG
         for j,v in enumerate(vals):
             c=tbl.add_cell(i,j,cw[j],rh,text=v,loc="center"); c.set_facecolor(bg)
