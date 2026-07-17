@@ -33,16 +33,19 @@ echo "[setup] Dépôt localisé : $REPO_DIR"
 echo "[setup] Installation des dépendances Python..."
 pip install --quiet -r "$SKILL_DIR/requirements.txt"
 
-if [ -n "$WBR_DATABASE_URL" ] && [ -n "$WBR_ENDPOINT_URL" ] && [ -n "$WBR_ENDPOINT_TOKEN" ]; then
+# En routine cloud, seuls les accès HTTPS au service WBR sont requis.
+# WBR_DATABASE_URL est optionnelle (utile uniquement hors cloud, où le
+# port Postgres est joignable).
+if [ -n "$WBR_ENDPOINT_URL" ] && [ -n "$WBR_ENDPOINT_TOKEN" ]; then
   {
-    echo "WBR_DATABASE_URL=$WBR_DATABASE_URL"
     echo "WBR_ENDPOINT_URL=$WBR_ENDPOINT_URL"
     echo "WBR_ENDPOINT_TOKEN=$WBR_ENDPOINT_TOKEN"
+    [ -n "$WBR_DATABASE_URL" ] && echo "WBR_DATABASE_URL=$WBR_DATABASE_URL"
   } > "$ENV_FILE"
   echo "[setup] .env.wbr.local écrit dans le skill à partir des variables d'environnement."
 else
-  echo "[setup] ATTENTION : au moins une variable WBR_* est absente de l'environnement." >&2
-  echo "[setup] Ajoutez WBR_DATABASE_URL, WBR_ENDPOINT_URL et WBR_ENDPOINT_TOKEN dans l'environnement cloud de la routine." >&2
+  echo "[setup] ATTENTION : WBR_ENDPOINT_URL ou WBR_ENDPOINT_TOKEN absente de l'environnement." >&2
+  echo "[setup] Ajoutez-les dans l'environnement cloud de la routine (Settings > Environment variables)." >&2
 fi
 
 echo "[setup] Préflight d'intégrité des scripts (py_compile)..."

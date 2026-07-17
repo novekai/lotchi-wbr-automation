@@ -12,8 +12,11 @@ Chaque lundi à 8h30, une routine Claude (cloud) clone ce dépôt et utilise le 
 Contrairement à l'ancien skill (`wbr-airtable-design-white`, données Airtable, build
 local du deck), `wbr-generation` s'appuie sur le datalake et un service distant :
 
-1. `wbr_metrics.py` lit le schéma `mart_wbr` (Postgres, rôle `analyst_wbr` lecture
-   seule) et calcule les progressions W-2 → W-1 (`metrics.json`).
+1. Les métriques W-2 → W-1 (`metrics.json`) sont fournies par le service distant
+   (`GET /metrics?city=<ville>`), qui exécute côté serveur la même logique que
+   `wbr_metrics.py`. La liste des villes actives vient de `GET /cities`.
+   (En session locale, `wbr_metrics.py` peut aussi interroger Postgres en direct ;
+   en routine cloud c'est impossible : seul le HTTPS sort de l'environnement.)
 2. Le deck `WBR_<Ville>_W<sem>.pptx` (graphiques, vignettes) est téléchargé depuis
    l'endpoint distant (`WBR_ENDPOINT_URL` + Bearer `WBR_ENDPOINT_TOKEN`).
 3. Claude rédige Key Metrics, Action Plans, To do et commentaires de campagne
@@ -45,9 +48,11 @@ Le fichier `.env.wbr.local` du skill n'est **pas** committé (voir `.gitignore`)
 Les secrets sont fournis via les variables d'environnement de l'environnement cloud
 de la routine ; `setup.sh` les recopie dans `.env.wbr.local` au démarrage de chaque run :
 
-- `WBR_DATABASE_URL` — URL Postgres du datalake (rôle `analyst_wbr`, lecture seule).
-- `WBR_ENDPOINT_URL` — endpoint du service de génération (terminé par `/wbr`).
-- `WBR_ENDPOINT_TOKEN` — token Bearer de cet endpoint.
+- `WBR_ENDPOINT_URL` — endpoint du service de génération (terminé par `/wbr` ;
+  la base de cette URL expose aussi `/cities` et `/metrics`).
+- `WBR_ENDPOINT_TOKEN` — token Bearer de ce service.
+- `WBR_DATABASE_URL` — optionnelle en routine (aucun accès Postgres possible
+  depuis le cloud) ; utile seulement pour exécuter `wbr_metrics.py` en local.
 - `AIRTABLE_API_KEY` — PAT Airtable, utilisé uniquement pour l'upload des pièces
   jointes (endpoint `uploadAttachment`). Scopes requis : `data.records:read`,
   `data.records:write`, `schema.bases:write` sur la base `appfKTIV0MZCvLfbb`.
