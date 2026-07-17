@@ -18,7 +18,7 @@ c. Rédaction : produis `textes.json` (Key Metrics, Action Plans, To do, comment
 d. Injection : `python3 <DIR>/scripts/wbr_write_text.py --deck ... --texts textes.json` (le script supprime les slides fantômes et échoue si l'intégrité du PPTX n'est pas garantie).
 e. Vérification du contenu : relis le deck final (aucun chiffre inventé, textes qui tiennent, To do cohérent, Plan d'action W-1 vide).
 
-La **Semaine** d'un WBR est celle des données, pas celle du calendrier : utilise `weeks.review_week_id` de `metrics.json` (déjà au format `YYYY-Wnn`, ex. `2026-W28`) — jamais la date d'exécution.
+La **Semaine** d'un WBR est la semaine de présentation (celle de la couverture du deck, `weeks.cover_week_label`), au format `YYYY-Wnn`. Calcule-la comme la semaine ISO de `weeks.presentation_date` de `metrics.json` (ex. `2026-07-15` → `2026-W29`, cohérent avec `cover_week_label: "W29"`) — ne prends jamais `review_week_id` (semaine des données, décalée d'une semaine) ni la date d'exécution.
 
 Si une étape échoue pour une ville (métriques en erreur, endpoint indisponible, échec d'intégrité du PPTX), n'interromps pas la routine : note précisément le message d'erreur et la cause probable pour cette ville, puis continue avec la ville suivante.
 
@@ -38,7 +38,7 @@ Pour chaque ville, sans exception (succès comme échec) :
 a. Vérifie s'il existe déjà un enregistrement pour cette Semaine + Ville. Si oui, mets-le à jour au lieu de créer un doublon.
 b. Si le WBR a été généré avec succès : Statut = "À envoyer", Détail erreur vidé, et attache le PPTX final dans le champ Fichier en uploadant le fichier lui-même (endpoint Airtable uploadAttachment sur le record, avec AIRTABLE_API_KEY), pas une URL. Si l'upload échoue (taille, endpoint), traite ce cas comme un échec : Statut = "Erreur" avec le détail.
 c. Si la génération a échoué : Statut = "Erreur" et renseigne le champ Détail erreur avec un résumé clair et actionnable (étape en échec, message d'erreur, cause probable), en 500 caractères maximum, sans jamais y recopier de credentials.
-d. **Mode échec global** (préflight ou `/cities` en échec) : enregistre une ligne Erreur, avec la cause commune, pour chaque ville de la semaine la plus récente déjà présente dans "WBR Générés" (à défaut : Bayonne et Reims). La Semaine de ces lignes est alors la semaine ISO précédant la date d'exécution (W-1 calendaire), faute de mieux.
+d. **Mode échec global** (préflight ou `/cities` en échec) : enregistre une ligne Erreur, avec la cause commune, pour chaque ville de la semaine la plus récente déjà présente dans "WBR Générés" (à défaut : Bayonne et Reims). La Semaine de ces lignes est alors la semaine ISO de la date d'exécution (même convention que la semaine de présentation), faute de metrics.json.
 
 Ne laisse jamais un échec sans enregistrement : c'est ce statut qui déclenche l'alerte mail du workflow n8n.
 
