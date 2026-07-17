@@ -1,19 +1,21 @@
 # Secrets — ne jamais committer
 .env
 *.env
-!.env.example
+.env.wbr.local
+!.env.wbr.local.example
 
 # Python
 __pycache__/
 *.py[cod]
-*.egg-info/
 .venv/
 venv/
 
-# Sorties de build WBR
-*.pptx.tmp
+# Sorties de run WBR
+*.pptx
+metrics*.json
+textes*.json
 /output/
-/_out/
+/_runs/
 
 # OS
 .DS_Store

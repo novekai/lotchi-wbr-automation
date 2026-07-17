@@ -1,8 +1,16 @@
 # Ne jamais committer de secrets
 .env
 **/.env
-# Sorties de build
+.env.wbr.local
+**/.env.wbr.local
+# Sorties de build et artefacts de run
 output/
 **/output/
+_runs/
+**/_runs/
+*.pptx
+!**/wbr_template.pptx
+metrics*.json
+textes*.json
 __pycache__/
 *.pyc

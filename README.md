@@ -1,11 +1,25 @@
 # lotchi-wbr-automation
 
-Dépôt support de la routine Claude « WBR hebdo — Bayonne & Reims (design white) ».
+Dépôt support de la routine Claude « WBR hebdo — toutes villes (wbr-generation) ».
 
-Chaque lundi à 8h30, une routine Claude (cloud) clone ce dépôt, utilise le skill
-`wbr-airtable-design-white` pour générer les WBR de Bayonne et Reims à partir de
-la base Airtable Lotchi WBR, puis archive les fichiers dans la table Airtable
+Chaque lundi à 8h30, une routine Claude (cloud) clone ce dépôt et utilise le skill
+`wbr-generation` pour générer le WBR de chaque ville active (liste tirée du datalake :
+`SELECT city FROM mart_wbr.cities`), puis archive les fichiers dans la table Airtable
 `WBR Générés`. Un workflow n8n prend le relais à 9h30 pour l'envoi par mail.
+
+## Pipeline du skill wbr-generation
+
+Contrairement à l'ancien skill (`wbr-airtable-design-white`, données Airtable, build
+local du deck), `wbr-generation` s'appuie sur le datalake et un service distant :
+
+1. `wbr_metrics.py` lit le schéma `mart_wbr` (Postgres, rôle `analyst_wbr` lecture
+   seule) et calcule les progressions W-2 → W-1 (`metrics.json`).
+2. Le deck `WBR_<Ville>_W<sem>.pptx` (graphiques, vignettes) est téléchargé depuis
+   l'endpoint distant (`WBR_ENDPOINT_URL` + Bearer `WBR_ENDPOINT_TOKEN`).
+3. Claude rédige Key Metrics, Action Plans, To do et commentaires de campagne
+   (`PROMPT-key-metrics-action-plan.md`) → `textes.json`.
+4. `wbr_write_text.py` injecte les textes, supprime les slides fantômes et vérifie
+   l'intégrité du PPTX.
 
 ## Structure
 
@@ -13,30 +27,41 @@ la base Airtable Lotchi WBR, puis archive les fichiers dans la table Airtable
 lotchi-wbr-automation/
 ├── README.md
 ├── ROUTINE.md          # Instructions à coller dans le champ prompt de la routine
-├── setup.sh            # Script de setup de l'environnement cloud (deps + .env)
-├── .gitignore          # Exclut .env et output/
+├── setup.sh            # Setup de l'environnement cloud (deps + .env.wbr.local)
+├── .gitignore          # Exclut les secrets et artefacts de run
 └── .claude/
     └── skills/
-        └── wbr-airtable-design-white/   # Le skill complet (scripts, template, playbook)
+        └── wbr-generation/
+            ├── SKILL.md
+            ├── PROMPT-key-metrics-action-plan.md
+            ├── requirements.txt
+            ├── .env.wbr.local.example   # Gabarit — le vrai .env n'est jamais committé
+            └── scripts/ (wbr_metrics.py, wbr_write_text.py)
 ```
 
-## Sécurité — clé Airtable
+## Sécurité — secrets
 
-Le fichier `.env` du skill n'est **pas** committé (voir `.gitignore`).
-La clé doit être fournie via la variable d'environnement `AIRTABLE_API_KEY`
-de l'environnement cloud de la routine. `setup.sh` la recopie dans le `.env`
-du skill au démarrage de chaque run.
+Le fichier `.env.wbr.local` du skill n'est **pas** committé (voir `.gitignore`).
+Les secrets sont fournis via les variables d'environnement de l'environnement cloud
+de la routine ; `setup.sh` les recopie dans `.env.wbr.local` au démarrage de chaque run :
 
-Le PAT Airtable doit avoir les scopes `data.records:read`, `data.records:write`
-et `schema.bases:write` sur la base `appfKTIV0MZCvLfbb` (lecture des données,
-écriture des enregistrements WBR Générés, création de la table au premier run).
+- `WBR_DATABASE_URL` — URL Postgres du datalake (rôle `analyst_wbr`, lecture seule).
+- `WBR_ENDPOINT_URL` — endpoint du service de génération (terminé par `/wbr`).
+- `WBR_ENDPOINT_TOKEN` — token Bearer de cet endpoint.
+- `AIRTABLE_API_KEY` — PAT Airtable, utilisé uniquement pour l'upload des pièces
+  jointes (endpoint `uploadAttachment`). Scopes requis : `data.records:read`,
+  `data.records:write`, `schema.bases:write` sur la base `appfKTIV0MZCvLfbb`.
+
+Les lectures/écritures d'enregistrements Airtable passent, elles, par le connecteur
+Hub (mcp1 / airtable novek) activé sur la routine.
 
 ## Mise en service de la routine
 
 1. Créer une routine (Remote) : trigger Schedule, lundi 08:30 (fuseau Africa/Porto-Novo).
-2. Attacher ce dépôt GitHub à la routine.
-3. Dans l'environnement cloud : ajouter la variable `AIRTABLE_API_KEY` et
-   déclarer `./setup.sh` comme script de setup.
+2. Attacher ce dépôt GitHub à la routine (dépôt privé supporté via le compte GitHub
+   connecté — Claude GitHub App ou `/web-setup`).
+3. Dans l'environnement cloud : ajouter les 4 variables ci-dessus et déclarer
+   `./setup.sh` comme script de setup.
 4. Coller le contenu de `ROUTINE.md` dans le champ instructions.
 5. Activer le connecteur Airtable (Hub mcp1 / airtable novek) pour la routine.
 
