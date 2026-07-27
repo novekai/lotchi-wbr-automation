@@ -147,13 +147,16 @@ def fill_todo(prs, todo):
     for _, sh, t in find_tables(prs):
         if sh.name != "actionplan_table":
             continue
-        # colonnes : Actions | To be done by Lotchi | To be done by Fever | Deadline
+        # colonnes : Actions | To be done by Lotchi | To be done by Fever | To be done by Partner | Deadline
+        # Deadline est toujours la dernière colonne : la position des colonnes intermédiaires
+        # (ex. « Partner ») peut varier selon le template, donc on ne la fige pas en dur.
+        deadline_col = len(t.columns) - 1
         for i, item in enumerate(todo):
             r = 1 if i == 0 else _add_row(t)
             set_cell(t.cell(r, 0), item.get("action"), size=9)
             set_cell(t.cell(r, 1), MARK if item.get("lotchi") else "", size=9, align=PP_ALIGN.CENTER)
             set_cell(t.cell(r, 2), MARK if item.get("fever") else "", size=9, align=PP_ALIGN.CENTER)
-            set_cell(t.cell(r, 3), item.get("deadline") or "", size=9, align=PP_ALIGN.CENTER)
+            set_cell(t.cell(r, deadline_col), item.get("deadline") or "", size=9, align=PP_ALIGN.CENTER)
         return len(todo)
     return 0
 
