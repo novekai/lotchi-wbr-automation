@@ -120,6 +120,11 @@ Règles :
   (Lotchi ou Fever) et **l'échéance** si elle est connue (sinon laisse vide).
 - Formule chaque ligne comme une action, pas comme un constat : `Baisser le spend` plutôt que
   `Spend trop élevé`.
+- **Pas de chiffre entre parenthèses ni de justification chiffrée dans l'action** : les chiffres
+  sont déjà dans les Key Metrics des slides d'origine, les répéter ici ne fait qu'allonger la ligne
+  jusqu'à ce qu'elle déborde de la cellule (police 9 pt, colonne étroite). `Augmenter le spend`
+  plutôt que `Augmenter le spend, forte hausse d'efficacité (ratio spend/gross en baisse)`. Cible :
+  une ligne, ~50 caractères, jamais de phrase avec propositions subordonnées.
 
 Exemple de consolidation : les Action Plan `Baisser le spend`, `Transmettre les recos Google à Fever`
 et `Ouvrir les séances d'août` deviennent trois lignes — porteur Lotchi, Fever, Lotchi.
