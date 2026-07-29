@@ -22,17 +22,21 @@ La **Semaine** d'un run est la semaine de présentation (celle de la couverture 
 
 Si une étape échoue pour une ville (métriques en erreur, endpoint indisponible, échec d'intégrité du PPTX), n'interromps pas la routine : note précisément le message d'erreur et la cause probable pour cette ville, puis continue avec la ville suivante.
 
-## 3. Dossier Drive de la semaine
-Utilise le connecteur Drive. Dans le dossier parent `1THMDoOXXRHTAczButWxxYymGMXJrRnP9` :
-a. Cherche un sous-dossier nommé exactement `<Semaine>` (format `AAAA-Wnn`, ex. `2026-W30`).
-b. S'il existe (re-run de la même semaine), réutilise-le. Sinon, crée-le. Ne crée jamais de doublon de dossier.
+## 3. Dépôt dans Drive — via le webhook d'upload
+Le dépôt dans Google Drive passe par un webhook n8n (le workflow « WBR - Réception upload Drive » crée/réutilise le dossier de la semaine dans le dossier parent et gère les remplacements — la routine n'appelle jamais Drive directement). Les variables d'environnement `WBR_UPLOAD_URL` et `WBR_UPLOAD_SECRET` sont fournies.
+
+- **Déposer un fichier** (un appel par fichier) :
+  `curl -sS -X POST -H "x-wbr-secret: $WBR_UPLOAD_SECRET" "$WBR_UPLOAD_URL?week=<Semaine>" -F "file=@<fichier>"`
+- **Supprimer un fichier** :
+  `curl -sS -X POST -H "x-wbr-secret: $WBR_UPLOAD_SECRET" "$WBR_UPLOAD_URL?week=<Semaine>&action=delete&filename=<nom>"`
+- **Vérifier chaque réponse** : le corps doit contenir `"status":"ok"`. Un HTTP 200 avec un corps vide ou différent est un ÉCHEC de l'appel (le webhook renvoie 200 même quand son traitement échoue en amont) — retente une fois, puis traite comme un échec.
 
 ## 4. Enregistrer les résultats
-Tous les dépôts se font dans le dossier Drive de la semaine (étape 3) :
-a. Pour chaque ville réussie : dépose le PPTX final (nom du fichier tel que renvoyé par le service, ex. `WBR_Bayonne_W30.pptx`). Si un fichier du même nom existe déjà (re-run), remplace-le au lieu de créer un doublon.
-b. Si au moins une ville a échoué : crée (ou remplace) un fichier `ERREURS.md` dans le dossier de la semaine. Pour chaque ville en échec : l'étape en échec, le message d'erreur et la cause probable, de façon claire et actionnable. N'y recopie jamais de credentials ni d'URL avec token.
-c. Si toutes les villes ont réussi : vérifie qu'aucun `ERREURS.md` obsolète (laissé par un run précédent de la même semaine) ne traîne dans le dossier — supprime-le s'il existe. Un `ERREURS.md` présent déclenche l'alerte du workflow n8n : il ne doit refléter que l'état du dernier run.
-d. **Mode échec global** (préflight ou `/cities` en échec) : crée quand même le dossier de la semaine (semaine ISO de la date d'exécution, faute de metrics.json — même convention que la semaine de présentation) et déposes-y uniquement un `ERREURS.md` expliquant la cause commune.
+Tous les dépôts se font via le webhook (étape 3), avec `week=<Semaine>` :
+a. Pour chaque ville réussie : dépose le PPTX final (nom du fichier tel que renvoyé par le service, ex. `WBR_Bayonne_W30.pptx`). Le webhook remplace automatiquement un fichier du même nom (re-run) — jamais de doublon.
+b. Si au moins une ville a échoué : rédige un fichier `ERREURS.md` et dépose-le. Pour chaque ville en échec : l'étape en échec, le message d'erreur et la cause probable, de façon claire et actionnable. N'y recopie jamais de credentials ni d'URL avec token.
+c. Si toutes les villes ont réussi : supprime un éventuel `ERREURS.md` obsolète laissé par un run précédent de la même semaine (`action=delete&filename=ERREURS.md` — répond ok même si le fichier n'existe pas). Un `ERREURS.md` présent déclenche l'alerte du workflow n8n : il ne doit refléter que l'état du dernier run.
+d. **Mode échec global** (préflight ou `/cities` en échec) : dépose uniquement un `ERREURS.md` expliquant la cause commune, avec `week` = semaine ISO de la date d'exécution (faute de metrics.json — même convention que la semaine de présentation).
 
 Ne laisse jamais un échec sans trace dans Drive : c'est la présence d'`ERREURS.md` qui déclenche l'alerte mail du workflow n8n (et l'absence totale du dossier de la semaine signale une panne complète de la routine).
 
@@ -40,6 +44,6 @@ Ne laisse jamais un échec sans trace dans Drive : c'est la présence d'`ERREURS
 Termine par un court récapitulatif : semaine traitée, liste des villes détectées, statut par ville (Déposé / Erreur + cause), et le lien du dossier Drive de la semaine.
 
 ## Garde-fous
-- Ne jamais exposer la valeur de WBR_ENDPOINT_TOKEN ni le contenu de `.env.wbr.local` (ni dans le récapitulatif, ni dans ERREURS.md, ni dans les logs).
+- Ne jamais exposer la valeur de WBR_ENDPOINT_TOKEN, WBR_UPLOAD_SECRET ni le contenu de `.env.wbr.local` (ni dans le récapitulatif, ni dans ERREURS.md, ni dans les logs).
 - Aucune connexion directe à la base de données depuis la routine : uniquement les endpoints HTTPS du service WBR.
 - Aucun chiffre inventé : toutes les valeurs viennent de `metrics.json`.

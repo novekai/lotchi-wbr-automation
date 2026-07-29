@@ -55,9 +55,16 @@ de la routine ; `setup.sh` les recopie dans `.env.wbr.local` au démarrage de ch
 - `WBR_ENDPOINT_TOKEN` — token Bearer de ce service.
 - `WBR_DATABASE_URL` — optionnelle en routine (aucun accès Postgres possible
   depuis le cloud) ; utile seulement pour exécuter `wbr_metrics.py` en local.
+- `WBR_UPLOAD_URL` — webhook n8n d'upload vers Drive (`.../webhook/wbr-upload`).
+- `WBR_UPLOAD_SECRET` — secret du header `x-wbr-secret` de ce webhook.
 
-Le dépôt des fichiers dans Google Drive passe par le connecteur Drive activé sur
-la routine (aucune clé dans l'environnement).
+Le dépôt des fichiers dans Google Drive passe par le workflow n8n
+« WBR - Réception upload Drive » (webhook + credential Google Drive côté n8n) :
+les outils Drive directement connectés à la routine n'acceptent pas des fichiers
+de la taille des decks (6-8 Mo), et l'environnement cloud ne sort qu'en HTTPS.
+Le workflow trouve/crée le dossier `AAAA-Wnn`, remplace les fichiers du même nom
+(pas de doublon en re-run) et gère `action=delete` pour retirer un `ERREURS.md`
+obsolète.
 
 ## Mise en service de la routine
 
@@ -68,9 +75,8 @@ la routine (aucune clé dans l'environnement).
    champ « setup script » le bloc qui localise le dépôt puis lance `bash setup.sh`
    (le script de settings est exécuté hors du dépôt).
 4. Coller le contenu de `ROUTINE.md` dans le champ instructions.
-5. Activer le connecteur Drive pour la routine.
-6. Network access : autoriser le domaine du service WBR (mode Full, ou Custom avec
-   ce domaine).
+5. Network access : autoriser les domaines du service WBR et du n8n (mode Full,
+   ou Custom avec ces domaines). Aucun connecteur n'est requis sur la routine.
 
 ## Contrat avec le workflow n8n
 
