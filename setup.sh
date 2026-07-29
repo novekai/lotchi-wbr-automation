@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Setup de l'environnement pour la routine WBR Lotchi (skill wbr-generation).
-# Pré-requis : les variables d'environnement WBR_DATABASE_URL, WBR_ENDPOINT_URL
-# et WBR_ENDPOINT_TOKEN doivent être définies dans l'environnement cloud de la
-# routine (Settings > Environment variables). AIRTABLE_API_KEY reste nécessaire
-# pour l'upload des pièces jointes (endpoint uploadAttachment).
+# Pré-requis : les variables d'environnement WBR_ENDPOINT_URL et
+# WBR_ENDPOINT_TOKEN doivent être définies dans l'environnement cloud de la
+# routine (Settings > Environment variables). WBR_DATABASE_URL est optionnelle
+# (usage local uniquement). Le dépôt des fichiers passe par le connecteur Drive.
 #
 # NB : l'environnement cloud copie ce script hors du dépôt avant de l'exécuter
 # ($0 pointe alors vers /tmp) — on localise donc le dépôt sans se fier à $0.

@@ -3,9 +3,11 @@
 Dépôt support de la routine Claude « WBR hebdo — toutes villes (wbr-generation) ».
 
 Chaque lundi à 8h30, une routine Claude (cloud) clone ce dépôt et utilise le skill
-`wbr-generation` pour générer le WBR de chaque ville active (liste tirée du datalake :
-`SELECT city FROM mart_wbr.cities`), puis archive les fichiers dans la table Airtable
-`WBR Générés`. Un workflow n8n prend le relais à 9h30 pour l'envoi par mail.
+`wbr-generation` pour générer le WBR de chaque ville active (liste fournie par le
+service WBR : `GET /cities`), puis dépose les fichiers dans Google Drive : un
+sous-dossier nommé `AAAA-Wnn` (semaine de présentation, ex. `2026-W30`) dans le
+dossier parent `1THMDoOXXRHTAczButWxxYymGMXJrRnP9`. Un workflow n8n prend le
+relais pour l'envoi par mail à partir du dossier de la semaine.
 
 ## Pipeline du skill wbr-generation
 
@@ -53,27 +55,31 @@ de la routine ; `setup.sh` les recopie dans `.env.wbr.local` au démarrage de ch
 - `WBR_ENDPOINT_TOKEN` — token Bearer de ce service.
 - `WBR_DATABASE_URL` — optionnelle en routine (aucun accès Postgres possible
   depuis le cloud) ; utile seulement pour exécuter `wbr_metrics.py` en local.
-- `AIRTABLE_API_KEY` — PAT Airtable, utilisé uniquement pour l'upload des pièces
-  jointes (endpoint `uploadAttachment`). Scopes requis : `data.records:read`,
-  `data.records:write`, `schema.bases:write` sur la base `appfKTIV0MZCvLfbb`.
 
-Les lectures/écritures d'enregistrements Airtable passent, elles, par le connecteur
-Hub (mcp1 / airtable novek) activé sur la routine.
+Le dépôt des fichiers dans Google Drive passe par le connecteur Drive activé sur
+la routine (aucune clé dans l'environnement).
 
 ## Mise en service de la routine
 
 1. Créer une routine (Remote) : trigger Schedule, lundi 08:30 (fuseau Africa/Porto-Novo).
 2. Attacher ce dépôt GitHub à la routine (dépôt privé supporté via le compte GitHub
    connecté — Claude GitHub App ou `/web-setup`).
-3. Dans l'environnement cloud : ajouter les 4 variables ci-dessus et déclarer
-   `./setup.sh` comme script de setup.
+3. Dans l'environnement cloud : ajouter les variables ci-dessus et mettre dans le
+   champ « setup script » le bloc qui localise le dépôt puis lance `bash setup.sh`
+   (le script de settings est exécuté hors du dépôt).
 4. Coller le contenu de `ROUTINE.md` dans le champ instructions.
-5. Activer le connecteur Airtable (Hub mcp1 / airtable novek) pour la routine.
+5. Activer le connecteur Drive pour la routine.
+6. Network access : autoriser le domaine du service WBR (mode Full, ou Custom avec
+   ce domaine).
 
-## Statuts de la table WBR Générés
+## Contrat avec le workflow n8n
 
-- `À envoyer` : WBR généré avec succès, en attente d'envoi par n8n (lundi 9h30).
-- `Envoyé` : mail parti, positionné par le workflow n8n.
-- `Erreur` : la génération a échoué pour cette ville ; le détail est dans le
-  champ `Détail erreur`. Le workflow n8n envoie alors une alerte à
-  novekai.team@gmail.com au lieu du mail de diffusion.
+La routine écrit dans le dossier Drive de la semaine (`AAAA-Wnn`) ; le workflow n8n
+lit ce dossier pour l'envoi des mails. Le contrat :
+
+- **PPTX présents** : WBR générés avec succès, à envoyer.
+- **`ERREURS.md` présent** : au moins une ville a échoué — envoyer son contenu en
+  alerte au lieu du mail de diffusion pour les villes concernées. Ce fichier
+  reflète toujours l'état du dernier run (un re-run réussi le supprime).
+- **Dossier de la semaine absent** à l'heure du workflow : panne complète de la
+  routine (rien n'a pu être écrit) — à traiter comme une alerte également.

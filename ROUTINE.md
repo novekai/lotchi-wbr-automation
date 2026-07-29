@@ -1,6 +1,6 @@
 # Instructions de la routine (à coller dans le champ prompt)
 
-Tu génères chaque lundi les WBR de toutes les villes actives en utilisant exclusivement le skill **wbr-generation** (ne pas confondre avec wbr-airtable, wbr-lotchi ou wbr-airtable-design-white, obsolètes), puis tu archives les résultats dans Airtable. Le skill se trouve dans ce dépôt cloné, à l'emplacement `.claude/skills/wbr-generation/` (noté `<DIR>` ci-dessous). Lis d'abord son SKILL.md. Ne demande aucune confirmation à aucune étape.
+Tu génères chaque lundi les WBR de toutes les villes actives en utilisant exclusivement le skill **wbr-generation** (ne pas confondre avec wbr-airtable, wbr-lotchi ou wbr-airtable-design-white, obsolètes), puis tu déposes les fichiers dans Google Drive. Le skill se trouve dans ce dépôt cloné, à l'emplacement `.claude/skills/wbr-generation/` (noté `<DIR>` ci-dessous). Lis d'abord son SKILL.md. Ne demande aucune confirmation à aucune étape.
 
 **Particularité cloud — pas d'accès Postgres.** L'environnement de la routine ne laisse sortir que du HTTPS : n'essaie jamais de te connecter à la base (`wbr_metrics.py` direct, psql…). Tout passe par le service WBR distant. `WBR_ENDPOINT_URL` (fournie en variable d'environnement, terminée par `/wbr`) donne l'URL du deck ; l'URL de base du service est `WBR_ENDPOINT_URL` **sans** le suffixe `/wbr` (ex. `https://<hote>`), et expose aussi `GET /cities` et `GET /metrics?city=<ville>`, avec la même authentification `Authorization: Bearer $WBR_ENDPOINT_TOKEN`.
 
@@ -18,34 +18,28 @@ c. Rédaction : produis `textes.json` (Key Metrics, Action Plans, To do, comment
 d. Injection : `python3 <DIR>/scripts/wbr_write_text.py --deck ... --texts textes.json` (le script supprime les slides fantômes et échoue si l'intégrité du PPTX n'est pas garantie).
 e. Vérification du contenu : relis le deck final (aucun chiffre inventé, textes qui tiennent, To do cohérent, Plan d'action W-1 vide).
 
-La **Semaine** d'un WBR est la semaine de présentation (celle de la couverture du deck, `weeks.cover_week_label`), au format `YYYY-Wnn`. Calcule-la comme la semaine ISO de `weeks.presentation_date` de `metrics.json` (ex. `2026-07-15` → `2026-W29`, cohérent avec `cover_week_label: "W29"`) — ne prends jamais `review_week_id` (semaine des données, décalée d'une semaine) ni la date d'exécution.
+La **Semaine** d'un run est la semaine de présentation (celle de la couverture du deck, `weeks.cover_week_label`), au format `AAAA-Wnn`. Calcule-la comme la semaine ISO de `weeks.presentation_date` de `metrics.json` (ex. `2026-07-15` → `2026-W29`, cohérent avec `cover_week_label: "W29"`) — ne prends jamais `review_week_id` (semaine des données, décalée d'une semaine) ni la date d'exécution.
 
 Si une étape échoue pour une ville (métriques en erreur, endpoint indisponible, échec d'intégrité du PPTX), n'interromps pas la routine : note précisément le message d'erreur et la cause probable pour cette ville, puis continue avec la ville suivante.
 
-## 3. Table Airtable "WBR Générés"
-Utilise exclusivement le connecteur Airtable novek du Hub (outils Hub mcp1:airtable_novek__*), base Lotchi WBR (appfKTIV0MZCvLfbb).
-a. Vérifie si la table "WBR Générés" existe déjà. Si oui, ne la recrée pas. Si l'option "Erreur" ou le champ "Détail erreur" manquent dans une table existante, ajoute-les sans toucher au reste du schéma.
-b. Si elle n'existe pas, crée-la une seule fois avec ces champs :
-   - Semaine (texte, ex. 2026-W28)
-   - Ville (sélection unique)
-   - Fichier (pièce jointe)
-   - Statut (sélection unique : À envoyer, Envoyé, Erreur)
-   - Détail erreur (texte long)
-c. Si une ville détectée à l'étape 1 n'existe pas encore dans les options du champ Ville, ajoute l'option (première lettre en majuscule, ex. `bayonne` → `Bayonne`).
+## 3. Dossier Drive de la semaine
+Utilise le connecteur Drive. Dans le dossier parent `1THMDoOXXRHTAczButWxxYymGMXJrRnP9` :
+a. Cherche un sous-dossier nommé exactement `<Semaine>` (format `AAAA-Wnn`, ex. `2026-W30`).
+b. S'il existe (re-run de la même semaine), réutilise-le. Sinon, crée-le. Ne crée jamais de doublon de dossier.
 
 ## 4. Enregistrer les résultats
-Pour chaque ville, sans exception (succès comme échec) :
-a. Vérifie s'il existe déjà un enregistrement pour cette Semaine + Ville. Si oui, mets-le à jour au lieu de créer un doublon.
-b. Si le WBR a été généré avec succès : Statut = "À envoyer", Détail erreur vidé, et attache le PPTX final dans le champ Fichier en uploadant le fichier lui-même (endpoint Airtable uploadAttachment sur le record, avec AIRTABLE_API_KEY), pas une URL. Si l'upload échoue (taille, endpoint), traite ce cas comme un échec : Statut = "Erreur" avec le détail.
-c. Si la génération a échoué : Statut = "Erreur" et renseigne le champ Détail erreur avec un résumé clair et actionnable (étape en échec, message d'erreur, cause probable), en 500 caractères maximum, sans jamais y recopier de credentials.
-d. **Mode échec global** (préflight ou `/cities` en échec) : enregistre une ligne Erreur, avec la cause commune, pour chaque ville de la semaine la plus récente déjà présente dans "WBR Générés" (à défaut : Bayonne et Reims). La Semaine de ces lignes est alors la semaine ISO de la date d'exécution (même convention que la semaine de présentation), faute de metrics.json.
+Tous les dépôts se font dans le dossier Drive de la semaine (étape 3) :
+a. Pour chaque ville réussie : dépose le PPTX final (nom du fichier tel que renvoyé par le service, ex. `WBR_Bayonne_W30.pptx`). Si un fichier du même nom existe déjà (re-run), remplace-le au lieu de créer un doublon.
+b. Si au moins une ville a échoué : crée (ou remplace) un fichier `ERREURS.md` dans le dossier de la semaine. Pour chaque ville en échec : l'étape en échec, le message d'erreur et la cause probable, de façon claire et actionnable. N'y recopie jamais de credentials ni d'URL avec token.
+c. Si toutes les villes ont réussi : vérifie qu'aucun `ERREURS.md` obsolète (laissé par un run précédent de la même semaine) ne traîne dans le dossier — supprime-le s'il existe. Un `ERREURS.md` présent déclenche l'alerte du workflow n8n : il ne doit refléter que l'état du dernier run.
+d. **Mode échec global** (préflight ou `/cities` en échec) : crée quand même le dossier de la semaine (semaine ISO de la date d'exécution, faute de metrics.json — même convention que la semaine de présentation) et déposes-y uniquement un `ERREURS.md` expliquant la cause commune.
 
-Ne laisse jamais un échec sans enregistrement : c'est ce statut qui déclenche l'alerte mail du workflow n8n.
+Ne laisse jamais un échec sans trace dans Drive : c'est la présence d'`ERREURS.md` qui déclenche l'alerte mail du workflow n8n (et l'absence totale du dossier de la semaine signale une panne complète de la routine).
 
 ## 5. Livrer
-Dépose les PPTX finaux générés dans le dossier de sortie et termine par un court récapitulatif : semaine traitée, liste des villes détectées, statut par ville (À envoyer / Erreur + cause), lien vers les enregistrements Airtable.
+Termine par un court récapitulatif : semaine traitée, liste des villes détectées, statut par ville (Déposé / Erreur + cause), et le lien du dossier Drive de la semaine.
 
 ## Garde-fous
-- Ne jamais exposer la valeur de WBR_ENDPOINT_TOKEN, AIRTABLE_API_KEY ni le contenu de `.env.wbr.local` (ni dans le récapitulatif, ni dans Airtable, ni dans les logs).
+- Ne jamais exposer la valeur de WBR_ENDPOINT_TOKEN ni le contenu de `.env.wbr.local` (ni dans le récapitulatif, ni dans ERREURS.md, ni dans les logs).
 - Aucune connexion directe à la base de données depuis la routine : uniquement les endpoints HTTPS du service WBR.
 - Aucun chiffre inventé : toutes les valeurs viennent de `metrics.json`.
