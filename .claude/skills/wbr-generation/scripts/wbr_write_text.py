@@ -7,10 +7,15 @@ Séparation des rôles : le script place le texte, Claude fournit le jugement (r
 Aucune donnée n'est calculée ici ; on écrit seulement ce que le JSON contient.
 
 Cible : le PPTX déjà produit par generate_wbr.py. On écrit dans :
-  - km_ap_table_s5 / s7 / s8 / s9 / s11 / s13  -> Key Metric (col 0) + Action Plan (col 1)
-  - actionplan_table (« To do for next week »)  -> une ligne par action (Lotchi / Fever / Deadline)
+  - km_ap_table_s5 / s7 / s8 / s9 / s11  -> Key Metric (col 0) + Action Plan (col 1).
+    Villes internationales : la colonne 2 de la s11 s'intitule « Reviews » et arrive PRÉ-REMPLIE
+    (notes Fever/Google) -> on n'écrit la colonne 2 que sous un en-tête « Action Plan ».
+  - actionplan_table (« To do for next week »)  -> une ligne par action (Lotchi / Fever /
+    Partner facultatif / Deadline).
   - toute table « *_comments_table » (slides campagne) -> colonne « Comments and recommendations »,
-    appariée par le nom de campagne déjà présent dans la 1re colonne.
+    appariée par le nom de campagne de la 1re colonne, avec préfixe de type facultatif
+    « TYPE:nom » (TYPE = ce qui suit « Campaign review: » dans le titre de la slide) pour
+    distinguer un même nom présent sur plusieurs slides.
 
 On ne touche JAMAIS à checklist_w1_table (Plan d'action W-1, laissé vide), ni aux graphiques,
 ni aux tables de chiffres (bigpicture_*, *_kpi_summary_table, sold-out).
@@ -27,19 +32,21 @@ Schéma de textes.json :
   "key_metrics": {
     "5":  {"key_metric": "...", "action_plan": "..."},
     "7":  {"key_metric": "...", "action_plan": "N/A"},
-    "8":  {...}, "9": {...}, "11": {...}, "13": {...}
+    "8":  {...}, "9": {...}, "11": {...}
   },
   "todo": [
-    {"action": "Baisser le spend", "lotchi": true, "fever": false, "deadline": ""},
+    {"action": "Baisser le spend", "lotchi": true, "fever": false, "partner": false, "deadline": ""},
     {"action": "Transmettre les recos Google", "lotchi": false, "fever": true, "deadline": "W30"}
   ],
   "campaign_comments": {
-    "BUE - Reach - ...": "Meilleure créa statique ..., vidéo en apprentissage.",
-    "BUE - Conv - UGC ...": "..."
+    "AC - Influencers": "Commentaire pour un nom unique dans le deck.",
+    "REACH:AC - Nocturnes": "Commentaire spécifique à la slide REACH.",
+    "CONVERSION:AC - Nocturnes": "Commentaire spécifique à la slide CONVERSION."
   }
 }
 Toutes les clés sont optionnelles : on ne remplit que ce qui est fourni. Pour campaign_comments,
-utiliser le nom de campagne EXACT (tel qu'écrit dans la 1re colonne de la table) comme clé.
+utiliser le nom de campagne EXACT (1re colonne de la table) comme clé ; si un même nom apparaît
+sur plusieurs slides, préfixer par le type lu dans le titre de la slide (« TYPE:nom »).
 
 Dépendances : python-pptx.
 """
@@ -51,7 +58,7 @@ from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN
 from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 
-KM_SLIDES = ("5", "7", "8", "9", "11", "13")
+KM_SLIDES = ("5", "7", "8", "9", "11")
 MARK = "X"  # marqueur dans les colonnes Lotchi / Fever du To do
 
 
@@ -124,7 +131,10 @@ def fill_key_metrics(prs, km):
             if name == f"km_ap_table_s{s}" and s in km:
                 entry = km[s] or {}
                 set_cell(t.cell(1, 0), entry.get("key_metric"), size=9)
-                set_cell(t.cell(1, 1), entry.get("action_plan"), size=9)
+                # Villes internationales : la col. 2 de la s11 s'intitule « Reviews » et arrive
+                # PRÉ-REMPLIE (notes Fever/Google) — n'écrire que sous un en-tête « Action Plan ».
+                if t.cell(0, 1).text.strip().lower() == "action plan":
+                    set_cell(t.cell(1, 1), entry.get("action_plan"), size=9)
                 done.append(s)
     return done
 
@@ -148,41 +158,73 @@ def fill_todo(prs, todo):
         if sh.name != "actionplan_table":
             continue
         # colonnes : Actions | To be done by Lotchi | To be done by Fever | To be done by Partner | Deadline
-        # Deadline est toujours la dernière colonne : la position des colonnes intermédiaires
-        # (ex. « Partner ») peut varier selon le template, donc on ne la fige pas en dur.
+        # Les positions varient selon le template : Lotchi/Fever/Partner sont repérées par
+        # l'en-tête, Deadline reste la dernière colonne.
+        heads = [c.text.strip().lower() for c in t.rows[0].cells]
+
+        def col_idx(word, default):
+            return next((i for i, h in enumerate(heads) if word in h), default)
+
+        c_lotchi, c_fever = col_idx("lotchi", 1), col_idx("fever", 2)
+        c_partner = col_idx("partner", None)
         deadline_col = len(t.columns) - 1
         for i, item in enumerate(todo):
             r = 1 if i == 0 else _add_row(t)
             set_cell(t.cell(r, 0), item.get("action"), size=9)
-            set_cell(t.cell(r, 1), MARK if item.get("lotchi") else "", size=9, align=PP_ALIGN.CENTER)
-            set_cell(t.cell(r, 2), MARK if item.get("fever") else "", size=9, align=PP_ALIGN.CENTER)
+            set_cell(t.cell(r, c_lotchi), MARK if item.get("lotchi") else "", size=9, align=PP_ALIGN.CENTER)
+            set_cell(t.cell(r, c_fever), MARK if item.get("fever") else "", size=9, align=PP_ALIGN.CENTER)
+            if c_partner is not None:
+                set_cell(t.cell(r, c_partner), MARK if item.get("partner") else "", size=9, align=PP_ALIGN.CENTER)
             set_cell(t.cell(r, deadline_col), item.get("deadline") or "", size=9, align=PP_ALIGN.CENTER)
         return len(todo)
     return 0
 
 
 # ── Commentaires de campagne (appariés par nom de campagne) ───────────────────
+def slide_campaign_type(slide):
+    """Type de campagne d'une slide « Campaign review: X. », lu dans son titre (ex. REACH,
+    CONVERSION, ENGAGEMENT ou tout futur objectif). '' si aucun titre reconnaissable — le deck
+    fait autorité, aucune liste de types n'est figée ici."""
+    for sh in slide.shapes:
+        if sh.has_text_frame:
+            txt = sh.text_frame.text.strip()
+            if txt.lower().startswith("campaign review"):
+                return txt.split(":", 1)[-1].strip().rstrip(".").upper()
+    return ""
+
+
 def fill_campaign_comments(prs, comments):
     if not comments:
         return 0
     n = 0
-    for _, sh, t in find_tables(prs):
-        h = header(t)
-        if not h or h[-1].lower() != "comments and recommendations":
-            continue
-        camp = t.cell(1, 0).text.strip()
-        if not camp:
-            continue
-        # 1) correspondance EXACTE (prioritaire : évite les collisions entre noms proches).
-        match = comments.get(camp)
-        # 2) sinon inclusion, mais seulement si NON AMBIGUË (un unique candidat).
-        if match is None:
-            cands = [v for k, v in comments.items() if camp in k or k in camp]
-            if len(cands) == 1:
-                match = cands[0]
-        if match is not None:
-            set_cell(t.cell(1, len(t.columns) - 1), match, size=8)
-            n += 1
+    for sl in prs.slides:
+        ctype = None  # titre de slide lu au premier besoin seulement
+        for sh in sl.shapes:
+            if not sh.has_table:
+                continue
+            t = sh.table
+            h = header(t)
+            if not h or h[-1].lower() != "comments and recommendations":
+                continue
+            camp = t.cell(1, 0).text.strip()
+            if not camp:
+                continue
+            if ctype is None:
+                ctype = slide_campaign_type(sl)
+            # 1) clé « TYPE:nom » (prioritaire : distingue un même nom de campagne présent
+            #    sur plusieurs slides, ex. en REACH et en CONVERSION).
+            match = comments.get(f"{ctype}:{camp}") if ctype else None
+            # 2) correspondance EXACTE par nom seul (cas nominal, noms uniques).
+            if match is None:
+                match = comments.get(camp)
+            # 3) sinon inclusion, mais seulement si NON AMBIGUË (un unique candidat).
+            if match is None:
+                cands = [v for k, v in comments.items() if camp in k or k in camp]
+                if len(cands) == 1:
+                    match = cands[0]
+            if match is not None:
+                set_cell(t.cell(1, len(t.columns) - 1), match, size=8)
+                n += 1
     return n
 
 

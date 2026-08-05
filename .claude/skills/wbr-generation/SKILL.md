@@ -62,7 +62,9 @@ python <DIR>/scripts/wbr_metrics.py --city <ville> --out metrics.json
 ```
 
 Chaque métrique porte `w1`, `w2`, `variation_str` (ex. `-6 %`, `+2 pt`) et `weeks.cover_week_label`
-(ex. `W29`). C'est la source de tous les chiffres pour la rédaction.
+(ex. `W29`). C'est la source de tous les chiffres pour la rédaction. Le JSON porte aussi `country`
+et **`is_international`** : quand ce dernier est `true` (ex. london, philadelphia), la rédaction se
+fait **en anglais** et la slide 11 n'a pas d'Action Plan (colonne **Reviews** pré-remplie).
 
 ### Étape 2 — télécharger le deck depuis le service distant
 
@@ -77,8 +79,11 @@ est géré côté serveur). La réponse doit être **HTTP 200** avec le type
 généralement quelques dizaines de secondes ; si l'appel dépasse la limite de 45 s par commande,
 lance le `curl` en arrière-plan et sonde la présence du `.pptx`.
 
-Le deck arrive avec graphiques, sold-out, Big Picture, vignettes des créas et tables de campagne,
-mais les cellules Key Metric / Action Plan / To do **vides**.
+Le deck arrive avec graphiques, sold-out, vignettes des créas et une slide par campagne
+(**tous objectifs confondus** : REACH, CONVERSION, ENGAGEMENT ou autre — le titre de la slide fait
+foi), avec des tables `*_kpi_summary_table` **pré-remplies** de chiffres à ne jamais toucher. Les
+cellules Key Metric / Action Plan / To do / commentaires de campagne arrivent **vides** — sauf la
+colonne **Reviews** de la slide 11 des villes internationales, pré-remplie (notes Fever/Google).
 
 ### Étape 3 — rédaction (Claude)
 
@@ -90,13 +95,16 @@ partir de `metrics.json`, produis `textes.json` :
   "key_metrics": {
     "5":  {"key_metric": "...", "action_plan": "..."},
     "7":  {"key_metric": "...", "action_plan": "N/A"},
-    "8": {"...": "..."}, "9": {"...": "..."}, "11": {"...": "..."}, "13": {"...": "..."}
+    "8": {"...": "..."}, "9": {"...": "..."}, "11": {"...": "..."}
   },
   "todo": [
-    {"action": "Baisser le spend", "lotchi": true, "fever": false, "deadline": ""},
+    {"action": "Baisser le spend", "lotchi": true, "fever": false, "partner": false, "deadline": ""},
     {"action": "Transmettre les recos Google", "lotchi": false, "fever": true, "deadline": "W30"}
   ],
-  "campaign_comments": { "<nom de campagne exact>": "commentaire ..." }
+  "campaign_comments": {
+    "<nom de campagne exact>": "commentaire ...",
+    "<TYPE>:<nom>": "si le même nom apparaît sur plusieurs slides (TYPE = titre de la slide)"
+  }
 }
 ```
 
@@ -105,11 +113,13 @@ les taux ; slide 11 = valeurs de remplissage (pas de progression) ; **aucun benc
 donnée manque. Le **To do** consolide et dédoublonne tous les Action Plans. Le **Plan d'action W-1**
 (`checklist_w1_table`) reste **vide**.
 
-Pour les `campaign_comments` : lis les tables des slides « Campaign review » du deck téléchargé (nom
-de campagne, CTR, ROAS, lignes d'annonces) et rédige un commentaire par campagne selon la section
-« Commentaires de campagne » du prompt. La clé doit être le **nom de campagne EXACT** de la 1re
-colonne (l'appariement approximatif n'est utilisé qu'en dernier recours, et seulement s'il est non
-ambigu).
+Pour les `campaign_comments` : lis les tables des slides « Campaign review » du deck téléchargé et
+rédige **un commentaire par table, fondé sur la ligne de métriques de cette table**, selon la
+section « Commentaires de campagne » du prompt (court, sans répéter les valeurs affichées dans la
+ligne). La clé est le **nom de campagne EXACT** de la 1re colonne ; si un même nom apparaît sur
+plusieurs slides (ex. en REACH et en CONVERSION), préfixe chaque clé par le type lu dans le titre de
+la slide : `REACH:<nom>`, `CONVERSION:<nom>`… (l'appariement approximatif n'est utilisé qu'en
+dernier recours, et seulement s'il est non ambigu).
 
 ### Étape 4 — injection des textes
 
@@ -117,8 +127,10 @@ ambigu).
 python <DIR>/scripts/wbr_write_text.py --deck WBR_<Ville>_W<sem>.pptx --texts textes.json
 ```
 
-Le script écrit dans `km_ap_table_s5/s7/s8/s9/s11/s13`, `actionplan_table` (une ligne par action) et
-les `*_comments_table`. Il ne touche jamais à `checklist_w1_table` ni aux graphiques/chiffres. Il
+Le script écrit dans `km_ap_table_s5/s7/s8/s9/s11`, `actionplan_table` (une ligne par action) et
+les `*_comments_table`. Il ne touche jamais à `checklist_w1_table`, aux graphiques/chiffres, ni à la
+colonne **Reviews** de la slide 11 (villes internationales : il ne remplit la colonne 2 que si son
+en-tête est « Action Plan »). Il
 **supprime d'abord les slides fantômes** (parts orphelines laissées par la génération) et **vérifie
 qu'aucun nom de part n'est dupliqué** — sinon il échoue au lieu de livrer un fichier que PowerPoint
 refuserait d'ouvrir. La sortie indique `orphelines_supprimees=N`.
