@@ -63,8 +63,9 @@ python <DIR>/scripts/wbr_metrics.py --city <ville> --out metrics.json
 
 Chaque métrique porte `w1`, `w2`, `variation_str` (ex. `-6 %`, `+2 pt`) et `weeks.cover_week_label`
 (ex. `W29`). C'est la source de tous les chiffres pour la rédaction. Le JSON porte aussi `country`
-et **`is_international`** : quand ce dernier est `true` (ex. london, philadelphia), la rédaction se
-fait **en anglais** et la slide 11 n'a pas d'Action Plan (colonne **Reviews** pré-remplie).
+et **`is_international`** : quand ce dernier est `true` (ex. london, philadelphia), la slide 11 n'a
+pas d'Action Plan (colonne **Reviews** pré-remplie). **La rédaction est en français pour toutes les
+villes.**
 
 ### Étape 2 — télécharger le deck depuis le service distant
 

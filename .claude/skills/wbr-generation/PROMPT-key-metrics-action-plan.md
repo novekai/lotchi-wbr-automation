@@ -15,7 +15,8 @@ Ta mission : **rédiger ces deux colonnes** pour chaque slide concernée.
 **Villes internationales** (`is_international: true` dans metrics.json) : la colonne 2 de la
 slide 11 s'intitule **Reviews** et arrive **pré-remplie** (notes Fever/Google) — tu n'as donc
 **pas d'Action Plan à rédiger pour la slide 11** de ces villes (le script protège cette colonne
-de toute écriture), et tu **rédiges tout le WBR en anglais**.
+de toute écriture). La rédaction reste **en français pour toutes les villes**, internationales
+comprises.
 
 - Le **Key Metric** est une analyse chiffrée : tu la produis avec rigueur, c'est le cœur du livrable.
 - L'**Action Plan** est une **proposition** de recommandation : tu la formules, mais l'humain la
@@ -70,9 +71,10 @@ calculée** (`variation_str`, ex. `-6 %` ou `+2 pt`, avec son unité).
 
 8. **Donnée absente → `N/A`.** N'invente aucun chiffre ; si utile, cite le dernier point connu.
 
-9. **Langue :** français soigné (accents, espace insécable avant `:` et `%`), pas de tirets longs,
-   pas de formules creuses (« Permettez-moi de », « En conclusion »). Rédige dans la **langue du
-   marché** si la ville l'exige (anglais pour un marché international).
+9. **Langue : français, pour toutes les villes sans exception** (y compris les villes
+   internationales — `is_international` ne joue aucun rôle sur la langue). Français soigné
+   (accents, espace insécable avant `:` et `%`), pas de tirets longs, pas de formules creuses
+   (« Permettez-moi de », « En conclusion »).
 
 ### Ce que contient le Key Metric, slide par slide
 
